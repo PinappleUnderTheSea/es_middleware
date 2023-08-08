@@ -163,12 +163,12 @@ func SearchOld(keyword string, size, offset int) (Floors, error) {
 
 // BulkInsert run in single goroutine only
 // see https://www.elastic.co/guide/en/elasticsearch/reference/master/docs-bulk.html
-func BulkInsert(floors []FloorModel) {
+func BulkInsert(floors []FloorModel) error {
 	if ES == nil {
-		return
+		return nil
 	}
 	if len(floors) == 0 {
-		return
+		return nil
 	}
 
 	var BulkBuffer = bytes.NewBuffer(make([]byte, 0, 1024000)) // 100 KB buffer
@@ -181,7 +181,7 @@ func BulkInsert(floors []FloorModel) {
 		data, err := json.Marshal(floor)
 		if err != nil {
 			log.Printf("error failed to marshal floor: %s", err)
-			return
+			return err
 		}
 		BulkBuffer.Write(data)
 		BulkBuffer.WriteByte('\n') // the final line of data must end with a newline character \n
@@ -199,18 +199,19 @@ func BulkInsert(floors []FloorModel) {
 	}()
 	if err != nil || res.IsError() {
 		log.Printf("error indexing floors %v: %s", floorIDs, err)
-		return
+		return err
 	}
 	log.Info().Ints("floor_ids", floorIDs).Msg("index floors success")
+	return nil
 }
 
 // BulkDelete used when a hole becomes hidden and delete all of its floors
-func BulkDelete(floorIDs []int) {
+func BulkDelete(floorIDs []int) error {
 	if ES == nil {
-		return
+		return nil
 	}
 	if len(floorIDs) == 0 {
-		return
+		return nil
 	}
 
 	var BulkBuffer = bytes.NewBuffer(make([]byte, 0, 1024000)) // 100 KB buffer
@@ -227,9 +228,10 @@ func BulkDelete(floorIDs []int) {
 	}()
 	if err != nil || res.IsError() {
 		log.Printf("error deleting floors %v: %s", floorIDs, err)
-		return
+		return err
 	}
 	log.Info().Ints("floor_ids", floorIDs).Msg("delete floors success")
+	return nil
 }
 
 // FloorIndex insert or replace a document, used when a floor is created or restored
@@ -269,9 +271,9 @@ func FloorIndex(floorModel FloorModel) {
 }
 
 // FloorDelete used when a floor is deleted
-func FloorDelete(floorID int) {
+func FloorDelete(floorID int) error {
 	if ES == nil {
-		return
+		return nil
 	}
 	res, err := ES.Delete(
 		IndexName,
@@ -286,7 +288,9 @@ func FloorDelete(floorID int) {
 			Int("floor_id", floorID).
 			Bytes("data", response).
 			Msg("error delete floor")
+		return err
 	} else {
 		log.Info().Int("floor_id", floorID).Msg("delete floor success")
 	}
+	return nil
 }
